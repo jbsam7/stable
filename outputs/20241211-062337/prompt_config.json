@@ -1,0 +1,23 @@
+{
+  "prompts": [
+    "Make a video of a little boy running through the woods",
+    ""
+  ],
+  "seeds": [
+    42,
+    1337
+  ],
+  "num_interpolation_steps": [
+    25
+  ],
+  "fps": 30,
+  "num_inference_steps": 50,
+  "guidance_scale": 7.5,
+  "eta": 0.0,
+  "upsample": false,
+  "height": 256,
+  "width": 256,
+  "audio_filepath": null,
+  "audio_start_sec": 0,
+  "negative_prompt": null
+}

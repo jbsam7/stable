@@ -1,132 +1,74 @@
-from pathlib import Path
+from stable_diffusion_videos import StableDiffusionWalkPipeline
+import torch
+import os
 
-import gradio as gr
+def generate_video(prompt1, prompt2, steps, scale, resolution):
+    # Check for GPU availability
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    dtype = torch.float16 if device == "cuda" else torch.float32  # Use mixed precision for GPUs
 
-from .image_generation import generate_images, generate_images_flax
+    pipeline = StableDiffusionWalkPipeline.from_pretrained(
+        "runwayml/stable-diffusion-v1-5",
+        torch_dtype=dtype,
+        safety_checker=None
+    ).to(device)
+
+    # Parse resolution (e.g., "512x512")
+    width, height = map(int, resolution.split("x"))
+
+    # Generate the video
+    output_dir = "./outputs"
+    os.makedirs(output_dir, exist_ok=True)  # Ensure output directory exists
+
+    video_path = pipeline.walk(
+        prompts=[prompt1, prompt2],
+        seeds=[42, 1337],
+        num_interpolation_steps=steps,
+        guidance_scale=scale,
+        height=height,
+        width=width,
+        output_dir=output_dir,
+    )
+    return video_path  # Return the path to the generated video
 
 
-class Interface:
-    def __init__(self, pipeline, params=None):
-        self.pipeline = pipeline
-        self.params = params  # params in case we are using Flax pipeline
-        self.interface_images = gr.Interface(
-            self.fn_images,
-            inputs=[
-                gr.Textbox("blueberry spaghetti", label="Prompt"),
-                gr.Slider(1, 24, 1, step=1, label="Batch size"),
-                gr.Slider(1, 16, 1, step=1, label="# Batches"),
-                gr.Slider(10, 100, 50, step=1, label="# Inference Steps"),
-                gr.Slider(5.0, 15.0, 7.5, step=0.5, label="Guidance Scale"),
-                gr.Slider(512, 1024, 512, step=64, label="Height"),
-                gr.Slider(512, 1024, 512, step=64, label="Width"),
-                gr.Checkbox(False, label="Upsample"),
-                gr.Textbox("./images", label="Output directory to save results to"),
-                # gr.Checkbox(False, label='Push results to Hugging Face Hub'),
-                # gr.Textbox("", label='Hugging Face Repo ID to push images to'),
-            ],
-            outputs=gr.Gallery(),
-        )
+# API Client Function
+def generate_video_via_api(prompt1, prompt2, steps, scale, resolution):
+    from gradio_client import Client  # Import only when this function is called
 
-        self.interface_videos = gr.Interface(
-            self.fn_videos,
-            inputs=[
-                gr.Textbox(
-                    "blueberry spaghetti\nstrawberry spaghetti",
-                    lines=2,
-                    label="Prompts, separated by new line",
-                ),
-                gr.Textbox("42\n1337", lines=2, label="Seeds, separated by new line"),
-                gr.Slider(
-                    3, 1000, 5, step=1, label="# Interpolation Steps between prompts"
-                ),
-                gr.Slider(3, 60, 5, step=1, label="Output Video FPS"),
-                gr.Slider(1, 24, 1, step=1, label="Batch size"),
-                gr.Slider(10, 100, 50, step=1, label="# Inference Steps"),
-                gr.Slider(5.0, 15.0, 7.5, step=0.5, label="Guidance Scale"),
-                gr.Slider(512, 1024, 512, step=64, label="Height"),
-                gr.Slider(512, 1024, 512, step=64, label="Width"),
-                gr.Checkbox(False, label="Upsample"),
-                gr.Textbox("./dreams", label="Output directory to save results to"),
-            ],
-            outputs=gr.Video(),
-        )
-        self.interface = gr.TabbedInterface(
-            [self.interface_images, self.interface_videos],
-            ["Images!", "Videos!"],
-        )
+    # Replace with the URL of your Gradio app (can be local or remote)
+    client = Client("http://127.0.0.1:7860/")
+    
+    # Call the API endpoint
+    result = client.predict(
+        prompt1=prompt1,
+        prompt2=prompt2,
+        steps=steps,
+        scale=scale,
+        resolution=resolution,
+        api_name="/predict"
+    )
+    return result  # Returns the video path or output
 
-    def fn_videos(
-        self,
-        prompts,
-        seeds,
-        num_interpolation_steps,
-        fps,
-        batch_size,
-        num_inference_steps,
-        guidance_scale,
-        height,
-        width,
-        upsample,
-        output_dir,
-    ):
-        prompts = [x.strip() for x in prompts.split("\n") if x.strip()]
-        seeds = [int(x.strip()) for x in seeds.split("\n") if x.strip()]
 
-        kwargs = dict(
-            prompts=prompts,
-            seeds=seeds,
-            num_interpolation_steps=num_interpolation_steps,
-            fps=fps,
-            height=height,
-            width=width,
-            output_dir=output_dir,
-            guidance_scale=guidance_scale,
-            num_inference_steps=num_inference_steps,
-            upsample=upsample,
-            batch_size=batch_size,
-        )
-        if self.params is not None:
-            # Assume Flax pipeline, force jit, params should be already replicated
-            kwargs.update(dict(params=self.params, jit=True))
-        return self.pipeline.walk(**kwargs)
 
-    def fn_images(
-        self,
-        prompt,
-        batch_size,
-        num_batches,
-        num_inference_steps,
-        guidance_scale,
-        height,
-        width,
-        upsample,
-        output_dir,
-        repo_id=None,
-        push_to_hub=False,
-    ):
-        kwargs = dict(
-            pipeline=self.pipeline,
-            prompt=prompt,
-            batch_size=batch_size,
-            num_batches=num_batches,
-            num_inference_steps=num_inference_steps,
-            guidance_scale=guidance_scale,
-            output_dir=output_dir,
-            image_file_ext=".jpg",
-            upsample=upsample,
-            height=height,
-            width=width,
-            push_to_hub=push_to_hub,
-            repo_id=repo_id,
-            create_pr=False,
-        )
-        generate_images_fn = generate_images
-        if self.params is not None:
-            generate_images_fn = generate_images_flax
-            kwargs.update(dict(params=self.params))
 
-        image_filepaths = generate_images_fn(**kwargs)
-        return [(x, Path(x).stem) for x in sorted(image_filepaths)]
+if __name__ == "__main__":
+    # Example inputs for both direct GPU processing and API usage
+    prompt1 = "Pixar animation. Close in shot. Make a video of Sonic the Hedgehog standing beside a little mixed boy who is 5 years old, staring at the sky"
+    prompt2 = "A view from a helicopter cockpit"
+    steps = 50
+    scale = 7.5
+    resolution = "1024x1024"
 
-    def launch(self, *args, **kwargs):
-        self.interface.launch(*args, **kwargs)
+    # Choice: Direct GPU Processing or API Communication
+    mode = "gpu"  # Change to "api" if you want to use the API instead
+
+    if mode == "gpu":
+        print("Using local GPU to generate video...")
+        video_path = generate_video(prompt1, prompt2, steps, scale, resolution)
+        print(f"Video generated and saved at: {video_path}")
+    elif mode == "api":
+        print("Using Gradio API to generate video...")
+        video_path = generate_video_via_api(prompt1, prompt2, steps, scale, resolution)
+        print(f"Video generated via API at: {video_path}")
