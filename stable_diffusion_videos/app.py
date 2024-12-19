@@ -55,9 +55,9 @@ def generate_video_via_api(prompt1, prompt2, steps, scale, resolution):
 
 if __name__ == "__main__":
     # Example inputs for both direct GPU processing and API usage
-    prompt1 = "Pixar animation. Close in shot. Make a video of Sonic the Hedgehog standing beside a little mixed boy who is 5 years old, staring at the sky"
-    prompt2 = "A view from a helicopter cockpit"
-    steps = 50
+    prompt1 = "Lebron James sitting on a bench at a city park in a pink dress"
+    prompt2 = "Lebron James standing up from sitting on a bench at a city park in a pink dress"
+    steps = 100
     scale = 7.5
     resolution = "1024x1024"
 
