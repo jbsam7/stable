@@ -1,0 +1,23 @@
+{
+  "prompts": [
+    "Pixar animation. Close in shot. Make a video of Sonic the Hedgehog standing beside a little mixed boy who is 5 years old, staring at the sky",
+    "A view from a helicopter cockpit"
+  ],
+  "seeds": [
+    42,
+    1337
+  ],
+  "num_interpolation_steps": [
+    50
+  ],
+  "fps": 30,
+  "num_inference_steps": 50,
+  "guidance_scale": 7.5,
+  "eta": 0.0,
+  "upsample": false,
+  "height": 1024,
+  "width": 1024,
+  "audio_filepath": null,
+  "audio_start_sec": 0,
+  "negative_prompt": null
+}
