@@ -48,6 +48,7 @@ def generate_video_via_api(prompt1, prompt2, steps, scale, resolution):
         resolution=resolution,
         api_name="/predict"
     )
+    print("API Result:", result)
     return result  # Returns the video path or output
 
 
